@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SalesTarget extends Model
 {
@@ -14,4 +15,9 @@ class SalesTarget extends Model
         'amount',
         'sales_id'
     ];
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class, 'sales_id', 'id');
+    }
 }
