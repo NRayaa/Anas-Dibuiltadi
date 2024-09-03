@@ -19,7 +19,7 @@ class SalesOrder extends Model
 
     public function salesOrderItems(): HasMany
     {
-        return $this->hasMany(SalesOrderItem::class, 'sales_order_id', 'id');
+        return $this->hasMany(SalesOrderItem::class, 'order_id', 'id');
     }
 
     public function customer(): BelongsTo
