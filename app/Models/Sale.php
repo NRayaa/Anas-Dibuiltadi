@@ -28,11 +28,11 @@ class Sale extends Model
 
     public function salesTargets(): HasMany
     {
-        return $this->hasMany(SalesTarget::class, 'sale_id', 'id');
+        return $this->hasMany(SalesTarget::class, 'sales_id', 'id');
     }
 
     public function salesOrders(): HasMany
     {
-        return $this->hasMany(SalesOrder::class, 'sale_id', 'id');
+        return $this->hasMany(SalesOrder::class, 'sales_id', 'id');
     }
 }

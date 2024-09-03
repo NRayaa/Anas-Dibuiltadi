@@ -1,0 +1,18 @@
+{
+    "is_underperform": false,
+    "month": "March 2024",
+    "items": [
+        {
+            "sales": "Salimah Handayani",
+            "revenue": { "amount": "508946300.00", "abbreviation": "508.95M" },
+            "target": { "amount": "500000000.00", "abbreviation": "500M" },
+            "percentage": "101.79"
+        },
+        {
+            "sales": "Samiah Rina Haryanti M.Farm",
+            "revenue": { "amount": "570012000.00", "abbreviation": "570.01M" },
+            "target": { "amount": "500000000.00", "abbreviation": "500M" },
+            "percentage": "114"
+        }
+    ]
+}
