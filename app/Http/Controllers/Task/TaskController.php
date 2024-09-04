@@ -10,6 +10,8 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
 use App\Models\SalesTarget;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -274,9 +276,9 @@ class TaskController extends Controller
         ]);
     }
 
-
     public function createCustomerLimaEnam(Request $request)
     {
+        // Validasi inputan dasar
         $validator = Validator::make($request->all(), [
             'name' => 'required',
             'address' => 'required',
@@ -294,21 +296,58 @@ class TaskController extends Controller
             ], 400);
         }
 
-        $customer = new Customer();
-        $customer->name = $request->name;
-        $customer->address = $request->address;
-        $customer->phone = $request->phone;
-        $customer->save();
+        // Ambil nomor telepon dari request
+        $phone = $request->phone;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Customer created successfully',
-            'data' => $customer
-        ]);
+        // Inisialisasi Guzzle client
+        $client = new Client();
+
+        try {
+            // Lakukan permintaan ke API validasi nomor telepon
+            $response = $client->get('https://phonevalidation.abstractapi.com/v1/', [
+                'query' => [
+                    'api_key' => env('PHONE_VALIDATION_API_KEY'),
+                    'phone' => $phone,
+                ],
+            ]);
+
+            $responseBody = json_decode($response->getBody(), true);
+
+            // Periksa hasil dari API
+            if (isset($responseBody['valid']) && $responseBody['valid']) {
+                // Nomor telepon valid, lanjutkan dengan penyimpanan customer
+                $customer = new Customer();
+                $customer->name = $request->name;
+                $customer->address = $request->address;
+                $customer->phone = $phone;
+                $customer->save();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Customer created successfully',
+                    'data' => $customer
+                ]);
+            } else {
+                // Nomor telepon tidak valid
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid phone number',
+                ], 400);
+            }
+        } catch (RequestException $e) {
+            // Tangani kesalahan API atau permintaan
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to validate phone number',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
+
 
     public function updateCustomerLimaEnam(Request $request, Customer $customer)
     {
+        // Validasi inputan dasar
         $validator = Validator::make($request->all(), [
             'name' => 'required',
             'address' => 'required',
@@ -326,16 +365,51 @@ class TaskController extends Controller
             ], 400);
         }
 
-        $customer->name = $request->name;
-        $customer->address = $request->address;
-        $customer->phone = $request->phone;
-        $customer->save();
+        // Ambil nomor telepon dari request
+        $phone = $request->phone;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Customer updated successfully',
-            'data' => $customer
-        ]);
+        // Inisialisasi Guzzle client
+        $client = new Client();
+
+        try {
+            // Lakukan permintaan ke API validasi nomor telepon
+            $response = $client->get('https://phonevalidation.abstractapi.com/v1/', [
+                'query' => [
+                    'api_key' => env('PHONE_VALIDATION_API_KEY'),
+                    'phone' => $phone,
+                ],
+            ]);
+
+            $responseBody = json_decode($response->getBody(), true);
+
+            // Periksa hasil dari API
+            if (isset($responseBody['valid']) && $responseBody['valid']) {
+                // Nomor telepon valid, lanjutkan dengan pembaruan customer
+                $customer->name = $request->name;
+                $customer->address = $request->address;
+                $customer->phone = $phone;
+                $customer->save();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Customer updated successfully',
+                    'data' => $customer
+                ]);
+            } else {
+                // Nomor telepon tidak valid
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid phone number',
+                ], 400);
+            }
+        } catch (RequestException $e) {
+            // Tangani kesalahan API atau permintaan
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to validate phone number',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function tujuh(Request $request)
