@@ -21,80 +21,75 @@ class TaskController extends Controller
 {
     public function dua(Request $request)
     {
-        $customerName = $request->input('customer'); // Nullable filter for customer
-        $userName = $request->input('sales'); // Nullable filter for user (sales)
+        // Ambil filter dari request
+        $customerName = $request->get('customer');
+        $salesName = $request->get('sales');
 
-        // Mendapatkan tahun saat ini dan tahun-tahun dalam 3 tahun terakhir
-        $currentYear = now()->year;
-        $years = range($currentYear - 2, $currentYear); // 3 tahun terakhir (misal: 2022, 2023, 2024)
+        // Membuat cache key berdasarkan filter yang diberikan
+        $cacheKey = 'transactions_' . $customerName . '_' . $salesName;
 
-        // Daftar bulan dengan format 3 huruf (Jan, Feb, ..., Dec)
-        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // Ambil data dari cache atau query jika tidak ada di cache
+        $transaction = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($customerName, $salesName) {
+            // Ambil tahun saat ini
+            $currentYear = Carbon::now()->year;
+            // Ambil 3 tahun terakhir
+            $years = range($currentYear - 2, $currentYear);
 
-        // Membuat key cache dinamis berdasarkan filter
-        $cacheKey = "task_2_" . $customerName . '_' . $userName;
+            // Query untuk mendapatkan transaksi dengan filter opsional
+            $query = SalesOrder::with(['salesOrderItems'])
+                ->whereBetween('created_at', [Carbon::now()->subYears(3)->startOfYear(), Carbon::now()->endOfYear()]);
 
-        // Attempt to get the data from the cache
-        $salesOrdersQuery = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($customerName, $userName) {
-            return SalesOrder::selectRaw('YEAR(sales_orders.created_at) as year, MONTH(sales_orders.created_at) as month, SUM(sales_order_items.selling_price) as total')
-                ->join('sales_order_items', 'sales_orders.id', '=', 'sales_order_items.order_id')
-                ->when($customerName, function ($query, $customerName) {
-                    return $query->join('customers', 'sales_orders.customer_id', '=', 'customers.id')
-                        ->where('customers.name', 'LIKE', "%$customerName%");
-                })
-                ->when($userName, function ($query, $userName) {
-                    return $query->join('sales', 'sales_orders.sales_id', '=', 'sales.id') // Gunakan kolom 'sales_id' dari SalesOrder dan 'id' dari Sale
-                        ->join('users', 'sales.user_id', '=', 'users.id')
-                        ->where('users.name', 'LIKE', "%$userName%");
-                })
-                ->whereYear('sales_orders.created_at', '>=', now()->subYears(3)->year)
-                ->groupBy('year', 'month')
-                ->get();
-        });
-
-        // Transform the data into the desired format
-        $groupedData = $salesOrdersQuery->groupBy('year')->map(function ($yearlyOrders, $year) use ($months) {
-            $monthlyData = collect($months)->map(function ($month) use ($yearlyOrders) {
-                $total = $yearlyOrders->firstWhere('month', date('m', strtotime($month)))->total ?? 0;
-                return [
-                    'x' => $month,
-                    'y' => number_format($total, 2, '.', ''),
-                ];
-            });
-
-            return [
-                'name' => $year,
-                'data' => $monthlyData->all(),
-            ];
-        });
-
-        // Ensure all years are present and add missing years with zeroed data
-        $data = collect($years)->map(function ($year) use ($groupedData, $months) {
-            if (!$groupedData->has($year)) {
-                $emptyData = collect($months)->map(function ($month) {
-                    return [
-                        'x' => $month,
-                        'y' => '0.00',
-                    ];
+            // Filter berdasarkan nama customer jika diberikan
+            if ($customerName) {
+                $query->whereHas('customer', function ($q) use ($customerName) {
+                    $q->where('name', 'like', '%' . $customerName . '%');
                 });
+            }
 
-                return [
+            // Filter berdasarkan nama sales jika diberikan
+            if ($salesName) {
+                $query->whereHas('sale.user', function ($q) use ($salesName) {
+                    $q->where('name', 'like', '%' . $salesName . '%');
+                });
+            }
+
+            // Ambil data
+            $salesOrders = $query->get();
+
+            // Format data sesuai kebutuhan
+            $data = [];
+            foreach ($years as $year) {
+                $monthlyData = [];
+                for ($month = 1; $month <= 12; $month++) {
+                    $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+                    $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+                    $total = $salesOrders->whereBetween('created_at', [$startDate, $endDate])
+                        ->flatMap(fn($order) => $order->salesOrderItems)
+                        ->sum('selling_price');
+
+                    $monthlyData[] = [
+                        'x' => $startDate->format('M'),
+                        'y' => number_format($total, 2)
+                    ];
+                }
+
+                $data[] = [
                     'name' => $year,
-                    'data' => $emptyData->all(),
+                    'data' => $monthlyData
                 ];
             }
 
-            return $groupedData->get($year);
+            // Return hasil dalam format yang diinginkan
+            return [
+                'customer' => $customerName,
+                'sales' => $salesName,
+                'items' => $data
+            ];
         });
 
-        // Prepare the response format
-        return response()->json([
-            'customer' => $customerName ?: null,
-            'sales' => $userName ?: null,
-            'items' => $data->values()->all(),
-        ]);
+        // Return response dalam format JSON
+        return response()->json($transaction);
     }
-
 
     public function tiga(Request $request)
     {
