@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'phone_validation' => [
+        'api_key' => env('PHONE_VALIDATION_API_KEY'),
+    ],
+
 ];

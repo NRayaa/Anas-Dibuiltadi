@@ -17,6 +17,7 @@ class SalesOrderItem extends Model
         'product_id',
         'order_id',
     ];
+    public $timestamps = false;
 
     public function salesOrder(): BelongsTo
     {
